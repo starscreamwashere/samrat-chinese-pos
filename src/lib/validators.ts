@@ -12,6 +12,10 @@ export const createOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1, "An order needs at least one item"),
 });
 
+export const updateOrderSchema = z.object({
+  orderType: z.enum(["dine_in", "phone"]),
+});
+
 export const menuItemSchema = z.object({
   name: z.string().min(1),
   category: z.string().min(1),
