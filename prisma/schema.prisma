@@ -1,0 +1,118 @@
+// Samrat Chinese POS — Prisma schema
+// Datasource: PostgreSQL on Supabase (used as a plain Postgres DB).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  owner
+  staff
+}
+
+enum OrderType {
+  dine_in
+  phone
+}
+
+enum ExpenseType {
+  rent
+  salary
+  capital
+  other
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String
+  // bcrypt hash — never returned to the client.
+  password  String
+  role      Role     @default(staff)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  orders   Order[]
+  expenses Expense[]
+
+  @@map("users")
+}
+
+model MenuItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  category  String
+  // Half price is nullable (soups are full-only, some items are single-price).
+  halfPrice Decimal? @map("half_price") @db.Decimal(10, 2)
+  fullPrice Decimal  @map("full_price") @db.Decimal(10, 2)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Future: add `imageUrl String? @map("image_url")` for photo buttons.
+
+  orderItems OrderItem[]
+
+  @@index([category])
+  @@map("menu_items")
+}
+
+model Order {
+  id        String    @id @default(uuid()) @db.Uuid
+  total     Decimal   @db.Decimal(10, 2)
+  orderType OrderType @default(dine_in) @map("order_type")
+  createdBy String    @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  createdByUser User        @relation(fields: [createdBy], references: [id])
+  items         OrderItem[]
+
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(uuid()) @db.Uuid
+  orderId    String  @map("order_id") @db.Uuid
+  menuItemId String? @map("menu_item_id") @db.Uuid
+  // Snapshots so historical orders stay correct if a menu item changes/price
+  // updates later.
+  itemName   String  @map("item_name")
+  unitPrice  Decimal @map("unit_price") @db.Decimal(10, 2)
+  quantity   Int
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Expense {
+  id        String      @id @default(uuid()) @db.Uuid
+  type      ExpenseType
+  amount    Decimal     @db.Decimal(10, 2)
+  note      String      @default("")
+  spentOn   DateTime    @map("spent_on") @db.Date
+  createdBy String      @map("created_by") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  createdByUser User @relation(fields: [createdBy], references: [id])
+
+  @@index([spentOn])
+  @@map("expenses")
+}
+
+model DailySummary {
+  id           String   @id @default(uuid()) @db.Uuid
+  summaryDate  DateTime @unique @map("summary_date") @db.Date
+  totalRevenue Decimal  @map("total_revenue") @db.Decimal(10, 2)
+  orderCount   Int      @map("order_count")
+  topItems     Json     @map("top_items")
+  sentAt       DateTime @default(now()) @map("sent_at")
+
+  @@map("daily_summaries")
+}
