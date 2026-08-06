@@ -64,6 +64,11 @@ model Order {
   id        String    @id @default(uuid()) @db.Uuid
   total     Decimal   @db.Decimal(10, 2)
   orderType OrderType @default(dine_in) @map("order_type")
+  // Dine-in: which table the order is served at (null for phone / untracked).
+  tableNo   Int?      @map("table_no")
+  // Phone: who placed the order (null for dine-in).
+  customerName  String? @map("customer_name")
+  customerPhone String? @map("customer_phone")
   createdBy String    @map("created_by") @db.Uuid
   createdAt DateTime  @default(now()) @map("created_at")
 
@@ -104,6 +109,15 @@ model Expense {
 
   @@index([spentOn])
   @@map("expenses")
+}
+
+// Simple key/value store for owner-editable settings (e.g. table_count).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
 }
 
 model DailySummary {

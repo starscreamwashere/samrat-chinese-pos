@@ -9,7 +9,7 @@ export async function apiGet<T>(url: string): Promise<T> {
 
 export async function apiSend<T>(
   url: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
   body?: unknown
 ): Promise<T> {
   const res = await fetch(url, {

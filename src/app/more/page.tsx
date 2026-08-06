@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   UtensilsCrossed,
   Wallet,
@@ -10,8 +12,14 @@ import {
   Phone,
   Clock,
   ChevronRight,
+  Grid2x2,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { Spinner } from "@/components/ui";
+import { apiGet, apiSend } from "@/lib/fetcher";
+import { cn } from "@/lib/utils";
 
 export default function MorePage() {
   const { data: session } = useSession();
@@ -36,6 +44,8 @@ export default function MorePage() {
             />
           </div>
         )}
+
+        {isOwner && <TablesSetting />}
 
         {/* Restaurant details */}
         <div className="card space-y-3 p-4">
@@ -73,6 +83,89 @@ export default function MorePage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function TablesSetting() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => apiGet<{ tableCount: number }>("/api/settings"),
+  });
+
+  const [count, setCount] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Local value: user edits, or falls back to the saved value.
+  const value = count ?? data?.tableCount ?? 0;
+
+  function bump(delta: number) {
+    setSaved(false);
+    setCount(Math.max(0, Math.min(100, value + delta)));
+  }
+
+  async function save() {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await apiSend("/api/settings", "PUT", { tableCount: value });
+      await qc.invalidateQueries({ queryKey: ["settings"] });
+      setCount(null);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const dirty = count !== null && count !== (data?.tableCount ?? 0);
+
+  return (
+    <div className="card p-4">
+      <div className="mb-1 flex items-center gap-2">
+        <Grid2x2 size={18} className="text-brand" />
+        <h2 className="text-sm font-semibold">Tables</h2>
+      </div>
+      <p className="mb-3 text-xs text-ink/50">
+        How many tables do you have? This many table buttons appear when taking a
+        dine-in order.
+      </p>
+
+      {isLoading ? (
+        <Spinner className="h-5 w-5 text-ink/40" />
+      ) : (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => bump(-1)}
+            className="btn-ghost h-11 w-11 !p-0"
+            aria-label="Fewer tables"
+          >
+            <Minus size={18} />
+          </button>
+          <span className="nums w-12 text-center text-2xl font-extrabold">
+            {value}
+          </span>
+          <button
+            onClick={() => bump(1)}
+            className="btn-ghost h-11 w-11 !p-0"
+            aria-label="More tables"
+          >
+            <Plus size={18} />
+          </button>
+
+          <button
+            onClick={save}
+            disabled={!dirty || saving}
+            className={cn("btn-primary ml-auto px-5 py-2.5", !dirty && "opacity-50")}
+          >
+            {saving ? <Spinner className="text-white" /> : "Save"}
+          </button>
+        </div>
+      )}
+      {saved && !dirty && (
+        <p className="mt-2 text-xs font-medium text-money-positive">Saved.</p>
+      )}
+    </div>
   );
 }
 

@@ -44,11 +44,39 @@ export async function PATCH(
     );
   }
 
+  const { orderType, tableNo, customerName, customerPhone } = parsed.data;
+  const data: {
+    orderType?: "dine_in" | "phone";
+    tableNo?: number | null;
+    customerName?: string | null;
+    customerPhone?: string | null;
+  } = {};
+
+  if (orderType !== undefined) {
+    data.orderType = orderType;
+    // Keep metadata consistent with the type: clear the irrelevant side.
+    if (orderType === "dine_in") {
+      data.customerName = null;
+      data.customerPhone = null;
+    } else {
+      data.tableNo = null;
+    }
+  }
+  if (tableNo !== undefined) data.tableNo = tableNo;
+  if (customerName !== undefined) data.customerName = customerName;
+  if (customerPhone !== undefined) data.customerPhone = customerPhone;
+
   try {
     const order = await prisma.order.update({
       where: { id: params.id },
-      data: { orderType: parsed.data.orderType },
-      select: { id: true, orderType: true },
+      data,
+      select: {
+        id: true,
+        orderType: true,
+        tableNo: true,
+        customerName: true,
+        customerPhone: true,
+      },
     });
     return NextResponse.json({ order });
   } catch {

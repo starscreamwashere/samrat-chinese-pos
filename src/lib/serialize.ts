@@ -11,6 +11,9 @@ type OrderRow = {
   id: string;
   total: unknown;
   orderType: string;
+  tableNo: number | null;
+  customerName: string | null;
+  customerPhone: string | null;
   createdAt: Date;
   items: OrderItemRow[];
   createdByUser?: { name: string } | null;
@@ -22,6 +25,9 @@ export function serializeOrder(order: OrderRow) {
     id: order.id,
     total: toNum(order.total),
     orderType: order.orderType,
+    tableNo: order.tableNo,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
     createdAt: order.createdAt.toISOString(),
     createdBy: order.createdByUser?.name ?? "—",
     items: order.items.map((it) => ({

@@ -25,6 +25,9 @@ type Order = {
   id: string;
   total: number;
   orderType: "dine_in" | "phone";
+  tableNo: number | null;
+  customerName: string | null;
+  customerPhone: string | null;
   createdAt: string;
   createdBy: string;
   items: OrderItem[];
@@ -76,17 +79,20 @@ export default function OrdersPage() {
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">
                     {data.orders.length - idx}
                   </span>
-                  <span className="flex items-center gap-1 text-xs font-medium text-ink/50">
-                    {order.orderType === "phone" ? (
-                      <>
-                        <Phone size={13} /> Phone
-                      </>
-                    ) : (
-                      <>
-                        <Utensils size={13} /> Dine-in
-                      </>
-                    )}
-                  </span>
+                  {order.orderType === "phone" ? (
+                    <span className="flex items-center gap-1 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-ink/60">
+                      <Phone size={12} />
+                      {order.customerName || "Phone"}
+                    </span>
+                  ) : order.tableNo != null ? (
+                    <span className="flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-xs font-bold text-brand">
+                      <Utensils size={12} /> Table {order.tableNo}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs font-medium text-ink/50">
+                      <Utensils size={13} /> Dine-in
+                    </span>
+                  )}
                   <span className="text-xs text-ink/40">
                     {format(new Date(order.createdAt), "h:mm a")}
                   </span>

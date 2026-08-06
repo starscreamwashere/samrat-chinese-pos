@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/api-auth";
 import { createOrderSchema } from "@/lib/validators";
+import { serializeOrder } from "@/lib/serialize";
 import { dayBounds, toNum } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -20,20 +21,7 @@ export async function GET(_req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  const serialized = orders.map((o) => ({
-    id: o.id,
-    total: toNum(o.total),
-    orderType: o.orderType,
-    createdAt: o.createdAt.toISOString(),
-    createdBy: o.createdByUser?.name ?? "—",
-    items: o.items.map((it) => ({
-      id: it.id,
-      itemName: it.itemName,
-      unitPrice: toNum(it.unitPrice),
-      quantity: it.quantity,
-    })),
-  }));
-
+  const serialized = orders.map(serializeOrder);
   const dailyTotal = serialized.reduce((s, o) => s + o.total, 0);
 
   return NextResponse.json({ orders: serialized, dailyTotal });
@@ -53,13 +41,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { items, orderType } = parsed.data;
+  const { items, orderType, tableNo, customerName, customerPhone } =
+    parsed.data;
   const total = items.reduce((sum, it) => sum + it.unitPrice * it.quantity, 0);
 
   const order = await prisma.order.create({
     data: {
       total,
       orderType,
+      // Table only for dine-in; customer only for phone.
+      tableNo: orderType === "dine_in" ? tableNo ?? null : null,
+      customerName: orderType === "phone" ? customerName ?? null : null,
+      customerPhone: orderType === "phone" ? customerPhone ?? null : null,
       createdBy: auth.user.id,
       items: {
         create: items.map((it) => ({

@@ -12,6 +12,9 @@ export default function OrderPage() {
   async function saveOrder(payload: ComposerSubmit) {
     await apiSend("/api/orders", "POST", {
       orderType: payload.orderType,
+      tableNo: payload.tableNo,
+      customerName: payload.customerName,
+      customerPhone: payload.customerPhone,
       items: payload.items,
     });
   }

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Minus, X } from "lucide-react";
+import { Plus, Minus, X, Search } from "lucide-react";
 import { CenteredSpinner, ErrorState, Spinner } from "@/components/ui";
 import { apiGet } from "@/lib/fetcher";
 import { formatINR, cn } from "@/lib/utils";
@@ -20,6 +20,9 @@ const GRAVY_PRICE = 10;
 export type ComposerSubmit = {
   items: PayloadItem[];
   orderType: OrderType;
+  tableNo: number | null;
+  customerName: string | null;
+  customerPhone: string | null;
 };
 
 /**
@@ -55,14 +58,30 @@ export function OrderComposer({
     return ["All", ...Array.from(set)];
   }, [items]);
 
+  // Table count is only needed when this composer captures order type (new order).
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: () => apiGet<{ tableCount: number }>("/api/settings"),
+    enabled: showOrderType,
+  });
+  const tableCount = settingsQuery.data?.tableCount ?? 0;
+
   const [activeCat, setActiveCat] = useState("All");
+  const [query, setQuery] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
+  const [tableNo, setTableNo] = useState<number | null>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const visibleItems =
-    activeCat === "All" ? items : items.filter((i) => i.category === activeCat);
+  const q = query.trim().toLowerCase();
+  const visibleItems = q
+    ? items.filter((i) => i.name.toLowerCase().includes(q))
+    : activeCat === "All"
+      ? items
+      : items.filter((i) => i.category === activeCat);
 
   const total = cart.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
   const itemCount = cart.reduce((s, l) => s + l.quantity, 0);
@@ -137,6 +156,11 @@ export function OrderComposer({
     try {
       await onSubmit({
         orderType,
+        tableNo: orderType === "dine_in" ? tableNo : null,
+        customerName:
+          orderType === "phone" ? customerName.trim() || null : null,
+        customerPhone:
+          orderType === "phone" ? customerPhone.trim() || null : null,
         items: cart.map((l) => ({
           menuItemId: l.menuItemId,
           itemName: lineName(l),
@@ -145,6 +169,9 @@ export function OrderComposer({
         })),
       });
       setCart([]);
+      setTableNo(null);
+      setCustomerName("");
+      setCustomerPhone("");
       if (resetOrderTypeOnSuccess) setOrderType("dine_in");
     } catch (e) {
       // Keep the tapped items on screen; let the owner retry.
@@ -167,22 +194,51 @@ export function OrderComposer({
         />
       ) : (
         <>
-          <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
-            {categories.map((cat) => (
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search
+              size={18}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/40"
+            />
+            <input
+              type="text"
+              inputMode="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search item…"
+              className="input !py-2.5 pl-10 pr-10"
+              aria-label="Search menu items"
+            />
+            {query && (
               <button
-                key={cat}
-                onClick={() => setActiveCat(cat)}
-                className={cn(
-                  "whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition",
-                  activeCat === cat
-                    ? "bg-brand text-white"
-                    : "bg-white text-ink/70 border border-black/10"
-                )}
+                onClick={() => setQuery("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink/40 hover:bg-black/5 hover:text-ink"
               >
-                {cat}
+                <X size={18} />
               </button>
-            ))}
+            )}
           </div>
+
+          {/* Category chips — hidden while searching */}
+          {!q && (
+            <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCat(cat)}
+                  className={cn(
+                    "whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition",
+                    activeCat === cat
+                      ? "bg-brand text-white"
+                      : "bg-white text-ink/70 border border-black/10"
+                  )}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {visibleItems.map((item) => (
@@ -191,7 +247,7 @@ export function OrderComposer({
           </div>
           {visibleItems.length === 0 && (
             <p className="py-10 text-center text-sm text-ink/50">
-              No items in this category.
+              {q ? `No items match “${query.trim()}”.` : "No items in this category."}
             </p>
           )}
         </>
@@ -206,6 +262,13 @@ export function OrderComposer({
         showOrderType={showOrderType}
         orderType={orderType}
         setOrderType={setOrderType}
+        tableCount={tableCount}
+        tableNo={tableNo}
+        setTableNo={setTableNo}
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        customerPhone={customerPhone}
+        setCustomerPhone={setCustomerPhone}
         onQty={changeQty}
         onRemove={removeLine}
         onToggleGravy={toggleGravy}
@@ -275,6 +338,13 @@ function ComposerFooter({
   showOrderType,
   orderType,
   setOrderType,
+  tableCount,
+  tableNo,
+  setTableNo,
+  customerName,
+  setCustomerName,
+  customerPhone,
+  setCustomerPhone,
   onQty,
   onRemove,
   onToggleGravy,
@@ -290,6 +360,13 @@ function ComposerFooter({
   showOrderType: boolean;
   orderType: OrderType;
   setOrderType: (t: OrderType) => void;
+  tableCount: number;
+  tableNo: number | null;
+  setTableNo: (n: number | null) => void;
+  customerName: string;
+  setCustomerName: (s: string) => void;
+  customerPhone: string;
+  setCustomerPhone: (s: string) => void;
   onQty: (key: string, delta: number) => void;
   onRemove: (key: string) => void;
   onToggleGravy: (line: CartLine) => void;
@@ -402,6 +479,61 @@ function ComposerFooter({
                   {expanded ? "Hide items" : `Show ${itemCount} items`}
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Table (dine-in) or customer (phone) capture — new order only. */}
+          {showOrderType && orderType === "dine_in" && (
+            <div className="mb-2">
+              {tableCount > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  <span className="mr-1 self-center text-xs text-ink/40">
+                    Table
+                  </span>
+                  {Array.from({ length: tableCount }, (_, i) => i + 1).map(
+                    (n) => (
+                      <button
+                        key={n}
+                        onClick={() => setTableNo(tableNo === n ? null : n)}
+                        className={cn(
+                          "nums h-9 min-w-9 rounded-lg px-2 text-sm font-semibold transition",
+                          tableNo === n
+                            ? "bg-brand text-white"
+                            : "bg-black/5 text-ink/60"
+                        )}
+                      >
+                        {n}
+                      </button>
+                    )
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-ink/40">
+                  Set your number of tables in More → Tables to assign one.
+                </p>
+              )}
+            </div>
+          )}
+
+          {showOrderType && orderType === "phone" && (
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Customer name"
+                className="input !py-2 text-sm"
+                aria-label="Customer name"
+              />
+              <input
+                type="tel"
+                inputMode="tel"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="Phone number"
+                className="input nums !py-2 text-sm"
+                aria-label="Customer phone number"
+              />
             </div>
           )}
 

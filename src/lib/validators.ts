@@ -7,13 +7,31 @@ export const orderItemSchema = z.object({
   quantity: z.number().int().positive(),
 });
 
+// Shared optional fields for who/where an order is (dine-in table, phone customer).
+const orderMetaShape = {
+  tableNo: z.number().int().positive().nullable().optional(),
+  customerName: z.string().max(120).nullable().optional(),
+  customerPhone: z.string().max(20).nullable().optional(),
+};
+
 export const createOrderSchema = z.object({
   orderType: z.enum(["dine_in", "phone"]).default("dine_in"),
   items: z.array(orderItemSchema).min(1, "An order needs at least one item"),
+  ...orderMetaShape,
 });
 
-export const updateOrderSchema = z.object({
-  orderType: z.enum(["dine_in", "phone"]),
+// PATCH may change the order type and/or its table/customer metadata.
+export const updateOrderSchema = z
+  .object({
+    orderType: z.enum(["dine_in", "phone"]).optional(),
+    ...orderMetaShape,
+  })
+  .refine((v) => Object.keys(v).length > 0, {
+    message: "No fields to update",
+  });
+
+export const settingsSchema = z.object({
+  tableCount: z.number().int().min(0).max(100),
 });
 
 export const menuItemSchema = z.object({
