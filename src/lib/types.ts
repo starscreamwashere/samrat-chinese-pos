@@ -22,6 +22,14 @@ export type CartLine = {
 
 export type OrderType = "dine_in" | "phone";
 
+// Shape sent to the API when saving/appending order items.
+export type PayloadItem = {
+  menuItemId: string | null;
+  itemName: string;
+  unitPrice: number;
+  quantity: number;
+};
+
 export function isStarter(category: string): boolean {
   return category.toLowerCase().includes("starter");
 }

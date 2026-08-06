@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ReceiptText, Phone, Utensils, Pencil, X } from "lucide-react";
+import {
+  ReceiptText,
+  Phone,
+  Utensils,
+  ChevronRight,
+  Plus,
+} from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { CenteredSpinner, EmptyState, ErrorState, Spinner } from "@/components/ui";
-import { apiGet, apiSend } from "@/lib/fetcher";
-import { formatINR, cn } from "@/lib/utils";
+import { CenteredSpinner, EmptyState, ErrorState } from "@/components/ui";
+import { apiGet } from "@/lib/fetcher";
+import { formatINR } from "@/lib/utils";
 
 type OrderItem = {
   id: string;
@@ -25,31 +31,13 @@ type Order = {
 };
 
 export default function OrdersPage() {
-  const qc = useQueryClient();
+  const router = useRouter();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["orders", "today"],
     queryFn: () =>
       apiGet<{ orders: Order[]; dailyTotal: number }>("/api/orders"),
     refetchInterval: 30_000,
   });
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
-
-  async function setType(order: Order, orderType: Order["orderType"]) {
-    if (order.orderType === orderType) {
-      setEditingId(null);
-      return;
-    }
-    setSavingId(order.id);
-    try {
-      await apiSend(`/api/orders/${order.id}`, "PATCH", { orderType });
-      await qc.invalidateQueries({ queryKey: ["orders", "today"] });
-      setEditingId(null);
-    } finally {
-      setSavingId(null);
-    }
-  }
 
   return (
     <AppShell
@@ -77,120 +65,64 @@ export default function OrdersPage() {
         />
       ) : (
         <div className="space-y-3">
-          {data.orders.map((order, idx) => {
-            const editing = editingId === order.id;
-            const saving = savingId === order.id;
-            return (
-              <div key={order.id} className="card p-4">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">
-                      {data.orders.length - idx}
-                    </span>
-
-                    {editing ? (
-                      <div className="flex items-center gap-1 rounded-lg bg-black/5 p-0.5">
-                        <TypeOption
-                          active={order.orderType === "dine_in"}
-                          disabled={saving}
-                          onClick={() => setType(order, "dine_in")}
-                          icon={<Utensils size={13} />}
-                          label="Dine-in"
-                        />
-                        <TypeOption
-                          active={order.orderType === "phone"}
-                          disabled={saving}
-                          onClick={() => setType(order, "phone")}
-                          icon={<Phone size={13} />}
-                          label="Phone"
-                        />
-                        {saving && <Spinner className="mx-1 h-4 w-4 text-ink/40" />}
-                      </div>
+          {data.orders.map((order, idx) => (
+            <button
+              key={order.id}
+              onClick={() => router.push(`/orders/${order.id}`)}
+              className="card block w-full p-4 text-left transition active:scale-[0.99] hover:bg-black/[0.01]"
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">
+                    {data.orders.length - idx}
+                  </span>
+                  <span className="flex items-center gap-1 text-xs font-medium text-ink/50">
+                    {order.orderType === "phone" ? (
+                      <>
+                        <Phone size={13} /> Phone
+                      </>
                     ) : (
-                      <span className="flex items-center gap-1 text-xs font-medium text-ink/50">
-                        {order.orderType === "phone" ? (
-                          <>
-                            <Phone size={13} /> Phone
-                          </>
-                        ) : (
-                          <>
-                            <Utensils size={13} /> Dine-in
-                          </>
-                        )}
-                      </span>
+                      <>
+                        <Utensils size={13} /> Dine-in
+                      </>
                     )}
-
-                    {!editing && (
-                      <span className="text-xs text-ink/40">
-                        {format(new Date(order.createdAt), "h:mm a")}
-                      </span>
-                    )}
-
-                    <button
-                      onClick={() =>
-                        setEditingId(editing ? null : order.id)
-                      }
-                      className="text-ink/30 hover:text-brand"
-                      aria-label={editing ? "Done editing" : "Edit order type"}
-                    >
-                      {editing ? <X size={16} /> : <Pencil size={15} />}
-                    </button>
-                  </div>
-                  <span className="nums shrink-0 text-lg font-bold">
-                    {formatINR(order.total)}
+                  </span>
+                  <span className="text-xs text-ink/40">
+                    {format(new Date(order.createdAt), "h:mm a")}
                   </span>
                 </div>
-                <ul className="space-y-1">
-                  {order.items.map((it) => (
-                    <li
-                      key={it.id}
-                      className="flex justify-between text-sm text-ink/70"
-                    >
-                      <span>
-                        <span className="nums font-medium text-ink">
-                          {it.quantity}×
-                        </span>{" "}
-                        {it.itemName}
-                      </span>
-                      <span className="nums text-ink/50">
-                        {formatINR(it.unitPrice * it.quantity)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                <span className="nums shrink-0 text-lg font-bold">
+                  {formatINR(order.total)}
+                </span>
               </div>
-            );
-          })}
+              <ul className="space-y-1">
+                {order.items.map((it) => (
+                  <li
+                    key={it.id}
+                    className="flex justify-between text-sm text-ink/70"
+                  >
+                    <span>
+                      <span className="nums font-medium text-ink">
+                        {it.quantity}×
+                      </span>{" "}
+                      {it.itemName}
+                    </span>
+                    <span className="nums text-ink/50">
+                      {formatINR(it.unitPrice * it.quantity)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-2 flex items-center justify-between border-t border-black/5 pt-2 text-xs font-medium text-brand">
+                <span className="flex items-center gap-1">
+                  <Plus size={14} /> Add items / edit
+                </span>
+                <ChevronRight size={16} className="text-ink/30" />
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </AppShell>
-  );
-}
-
-function TypeOption({
-  active,
-  disabled,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  disabled: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition",
-        active ? "bg-white text-ink shadow-sm" : "text-ink/50"
-      )}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }
