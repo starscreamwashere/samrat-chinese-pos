@@ -30,32 +30,24 @@ const KNOWN_PRINTER_SERVICES = [
 
 const enc = new TextEncoder();
 
+// Bare-minimum, maximally-compatible slip: init + plain ASCII + line feeds.
+// No size/align/cut commands — those can jam basic printers.
 function escposTestSlip(): Uint8Array {
   const parts: number[] = [];
-  const push = (arr: number[]) => parts.push(...arr);
   const text = (s: string) => parts.push(...Array.from(enc.encode(s)));
-
-  push([0x1b, 0x40]); // init
-  push([0x1b, 0x61, 0x01]); // center
-  push([0x1d, 0x21, 0x11]); // double width+height
+  parts.push(0x1b, 0x40); // ESC @  (initialize)
+  text("\n");
   text("Samrat Chinese\n");
-  push([0x1d, 0x21, 0x00]); // normal size
   text("Printer test OK\n");
-  push([0x1b, 0x45, 0x00]); // bold off
-  text("SC588 via Web Bluetooth\n");
-  push([0x1b, 0x61, 0x00]); // left
-  text("--------------------------------\n");
-  text("1 x Test item            Rs 100\n");
-  text("--------------------------------\n");
-  push([0x1b, 0x61, 0x02]); // right
-  text("TOTAL: Rs 100\n");
-  push([0x1b, 0x61, 0x01]); // center
-  text(new Date().toLocaleString() + "\n");
-  text("If you can read this, it works!\n");
-  push([0x1b, 0x64, 0x04]); // feed 4 lines
-  push([0x1d, 0x56, 0x42, 0x00]); // partial cut (ignored if no cutter)
+  text("If you can read this,\n");
+  text("printing works!\n");
+  text("\n\n\n\n\n\n"); // feed so text clears the tear bar
   return new Uint8Array(parts);
 }
+
+// Standard BLE thermal-printer channel (the SC588 exposes service 000018f0).
+const PRINT_SERVICE = "000018f0-0000-1000-8000-00805f9b34fb";
+const PRINT_CHAR = "00002af1-0000-1000-8000-00805f9b34fb";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -94,23 +86,25 @@ export default function PrinterTestPage() {
     data: Uint8Array
   ) {
     const size = 20; // safe default BLE MTU payload
+    // Prefer a CONFIRMED write (write-with-response) so we know bytes landed;
+    // fall back to write-without-response only if that's all the char supports.
+    const preferConfirmed = ch.properties.write;
+    let method = "none";
     for (let i = 0; i < data.length; i += size) {
       const chunk = data.slice(i, i + size);
-      try {
-        if (ch.properties.writeWithoutResponse && ch.writeValueWithoutResponse) {
-          await ch.writeValueWithoutResponse(chunk);
-        } else if (ch.writeValueWithResponse) {
-          await ch.writeValueWithResponse(chunk);
-        } else if (ch.writeValue) {
-          await ch.writeValue(chunk);
-        }
-      } catch (e) {
-        // Fall back to the other write method on failure.
-        if (ch.writeValue) await ch.writeValue(chunk);
-        else throw e;
+      if (preferConfirmed && ch.writeValueWithResponse) {
+        await ch.writeValueWithResponse(chunk);
+        method = "write-with-response";
+      } else if (ch.properties.writeWithoutResponse && ch.writeValueWithoutResponse) {
+        await ch.writeValueWithoutResponse(chunk);
+        method = "write-without-response";
+      } else if (ch.writeValue) {
+        await ch.writeValue(chunk);
+        method = "writeValue";
       }
-      await sleep(18);
+      await sleep(40); // give the printer's buffer time between packets
     }
+    return method;
   }
 
   async function run() {
@@ -134,22 +128,38 @@ export default function PrinterTestPage() {
       const server = await device.gatt.connect();
       add("Connected. Discovering services…");
 
+      // Log the full service/characteristic map (diagnostics), and pick the
+      // first writable char as a generic fallback.
       const services = await server.getPrimaryServices();
-      add(`Found ${services.length} service(s).`);
-
-      let target: any = null;
+      add(`Found ${services.length} service(s):`);
+      let fallback: any = null;
       for (const s of services) {
         const chars = await s.getCharacteristics();
         for (const c of chars) {
           const p = c.properties;
-          add(
-            `  service ${s.uuid} · char ${c.uuid} ` +
-              `[${p.write ? "write " : ""}${
-                p.writeWithoutResponse ? "writeNoResp" : ""
-              }]`
-          );
-          if ((p.write || p.writeWithoutResponse) && !target) target = c;
+          const flags =
+            [
+              p.write && "write",
+              p.writeWithoutResponse && "writeNoResp",
+              p.read && "read",
+              p.notify && "notify",
+            ]
+              .filter(Boolean)
+              .join(",") || "none";
+          add(`  ${s.uuid.slice(0, 8)} / ${c.uuid.slice(0, 8)} [${flags}]`);
+          if (!fallback && (p.write || p.writeWithoutResponse)) fallback = c;
         }
+      }
+
+      // Prefer the standard printer data characteristic; else the fallback.
+      let target: any = null;
+      try {
+        const svc = await server.getPrimaryService(PRINT_SERVICE);
+        target = await svc.getCharacteristic(PRINT_CHAR);
+        add("→ Using standard printer channel 00002af1.");
+      } catch {
+        target = fallback;
+        if (target) add(`→ Using fallback channel ${target.uuid.slice(0, 8)}.`);
       }
 
       if (!target) {
@@ -157,9 +167,10 @@ export default function PrinterTestPage() {
         return;
       }
 
-      add(`Using characteristic ${target.uuid} to print test slip…`);
-      await writeChunks(target, escposTestSlip());
-      add("📄 Sent! Check the printer — a test slip should print.");
+      const bytes = escposTestSlip();
+      add(`Sending ${bytes.length} bytes…`);
+      const method = await writeChunks(target, bytes);
+      add(`📄 Sent via ${method}. Watch the printer for paper.`);
       setVerdict("printed");
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
