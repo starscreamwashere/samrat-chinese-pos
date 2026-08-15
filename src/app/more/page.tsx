@@ -15,6 +15,7 @@ import {
   Grid2x2,
   Minus,
   Plus,
+  Printer,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Spinner } from "@/components/ui";
@@ -41,6 +42,12 @@ export default function MorePage() {
               icon={<Wallet size={20} />}
               label="Expenses"
               hint="Log rent, salary, capital"
+            />
+            <MoreLink
+              href="/printer-test"
+              icon={<Printer size={20} />}
+              label="Printer test"
+              hint="Try connecting the Bluetooth printer"
             />
           </div>
         )}
