@@ -130,18 +130,28 @@ The nightly summary uses the **Meta WhatsApp Cloud API**:
    - **Name:** `daily_summary` (put it in `WHATSAPP_TEMPLATE_NAME`)
    - **Category:** Utility · **Language:** English (put its code in
      `WHATSAPP_TEMPLATE_LANG`, e.g. `en` or `en_US`)
-   - **Body** — 4 parameters, in this order:
+   - **Body** — **7 parameters**, in this exact order:
 
      ```
      🍜 Samrat Chinese — Daily Summary
      📅 {{1}}
-     💰 Revenue: {{2}}
-     🧾 Orders: {{3}}
-     🔥 Top items: {{4}}
+
+     💰 Income: {{2}}
+     💸 Spent: {{3}}
+     📈 Profit: {{4}}
+
+     🧾 Orders: {{5}}
+     🔥 Top items: {{6}}
+
+     🏦 All-time profit: {{7}}
      ```
 
      Sample values for approval: `{{1}}` = `Sat, 30 Aug 2025`, `{{2}}` =
-     `₹4,250`, `{{3}}` = `18`, `{{4}}` = `1) Chicken Chilly x12 (₹2,640), 2) …`.
+     `₹4,250`, `{{3}}` = `₹500`, `{{4}}` = `₹3,750`, `{{5}}` = `18`,
+     `{{6}}` = `1) Chicken Chilly x12 (₹2,640), 2) …`, `{{7}}` = `₹1,42,300`.
+
+     (Income = the day's order revenue · Spent = expenses dated today ·
+     Profit = Income − Spent · All-time profit = all revenue − all expenses.)
 
    The cron fills these from the day's totals automatically
    (`summaryTemplateParams` in [`src/lib/daily-summary.ts`](src/lib/daily-summary.ts)).
