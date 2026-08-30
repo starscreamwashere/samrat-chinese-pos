@@ -4,18 +4,43 @@ import { LogOut } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
 import { AppShell } from "@/components/AppShell";
 import { OrderComposer, type ComposerSubmit } from "@/components/OrderComposer";
+import { usePrinter } from "@/components/PrinterProvider";
 import { apiSend } from "@/lib/fetcher";
 
 export default function OrderPage() {
   const { data: session } = useSession();
+  const printer = usePrinter();
 
   async function saveOrder(payload: ComposerSubmit) {
-    await apiSend("/api/orders", "POST", {
+    const res = await apiSend<{ order: { id: string; total: number } }>(
+      "/api/orders",
+      "POST",
+      {
+        orderType: payload.orderType,
+        tableNo: payload.tableNo,
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        items: payload.items,
+      }
+    );
+
+    // Print the bill from what we just sent + the server's id/total. Fire and
+    // forget: the order is already saved, so a printer hiccup must never undo
+    // the save or block the next order. Does nothing if no printer is paired.
+    printer.autoPrint({
+      orderId: res.order.id,
+      total: res.order.total,
+      createdAt: new Date(),
       orderType: payload.orderType,
       tableNo: payload.tableNo,
       customerName: payload.customerName,
       customerPhone: payload.customerPhone,
-      items: payload.items,
+      staffName: session?.user?.name ?? null,
+      items: payload.items.map((it) => ({
+        name: it.itemName,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+      })),
     });
   }
 

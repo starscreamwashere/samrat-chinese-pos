@@ -16,8 +16,11 @@ import {
   Minus,
   Plus,
   Printer,
+  Bluetooth,
+  BluetoothConnected,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { usePrinter } from "@/components/PrinterProvider";
 import { Spinner } from "@/components/ui";
 import { apiGet, apiSend } from "@/lib/fetcher";
 import { cn } from "@/lib/utils";
@@ -46,11 +49,14 @@ export default function MorePage() {
             <MoreLink
               href="/printer-test"
               icon={<Printer size={20} />}
-              label="Printer test"
-              hint="Try connecting the Bluetooth printer"
+              label="Printer diagnostics"
+              hint="Low-level Bluetooth probe & test slip"
             />
           </div>
         )}
+
+        {/* Printer connection — staff print bills too, so this is for everyone. */}
+        <PrinterSetting />
 
         {isOwner && <TablesSetting />}
 
@@ -90,6 +96,67 @@ export default function MorePage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+function PrinterSetting() {
+  const { supported, connected, deviceName, connecting, connect, disconnect } =
+    usePrinter();
+
+  return (
+    <div className="card p-4">
+      <div className="mb-1 flex items-center gap-2">
+        {connected ? (
+          <BluetoothConnected size={18} className="text-money-positive" />
+        ) : (
+          <Bluetooth size={18} className="text-brand" />
+        )}
+        <h2 className="text-sm font-semibold">Bill printer</h2>
+        {connected && (
+          <span className="ml-auto rounded-full bg-money-positive/10 px-2 py-0.5 text-xs font-semibold text-money-positive">
+            Connected
+          </span>
+        )}
+      </div>
+
+      {supported === false ? (
+        <p className="rounded-lg bg-money-negative/5 p-3 text-sm font-medium text-money-negative">
+          This browser can’t use Bluetooth. Open the app in{" "}
+          <b>Chrome on Android</b> to print.
+        </p>
+      ) : (
+        <>
+          <p className="mb-3 text-xs text-ink/50">
+            {connected
+              ? `Paired with ${deviceName ?? "the printer"}. New orders print automatically, and you can reprint any bill from its order screen.`
+              : "Pair the SC588 once — turn it on, tap Connect, pick it from the list. Bills then print automatically when you save an order."}
+          </p>
+
+          {connected ? (
+            <button
+              onClick={disconnect}
+              className="btn-ghost w-full py-2.5 text-sm text-money-negative"
+            >
+              Disconnect
+            </button>
+          ) : (
+            <button
+              onClick={() => connect().catch(() => {})}
+              disabled={connecting}
+              className="btn-primary w-full py-2.5"
+            >
+              {connecting ? (
+                <Spinner className="text-white" />
+              ) : (
+                <>
+                  <Bluetooth size={18} /> Connect printer
+                </>
+              )}
+            </button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 

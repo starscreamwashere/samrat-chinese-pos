@@ -3,9 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Phone, Utensils } from "lucide-react";
+import { ArrowLeft, Phone, Printer, Utensils } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { OrderComposer, type ComposerSubmit } from "@/components/OrderComposer";
+import { usePrinter } from "@/components/PrinterProvider";
 import { CenteredSpinner, ErrorState, Spinner } from "@/components/ui";
 import { apiGet, apiSend } from "@/lib/fetcher";
 import { formatINR, cn } from "@/lib/utils";
@@ -50,8 +51,37 @@ export default function OrderDetailPage({
   const tableCount = settingsQuery.data?.tableCount ?? 0;
 
   const order = data?.order;
+  const printer = usePrinter();
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
+
+  async function printBill() {
+    if (!order) return;
+    setPrinting(true);
+    try {
+      // Pair on the fly if needed — a tap is a valid gesture for the chooser.
+      if (!printer.connected) await printer.connect();
+      await printer.print({
+        orderId: order.id,
+        total: order.total,
+        createdAt: new Date(order.createdAt),
+        orderType: order.orderType,
+        tableNo: order.tableNo,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        items: order.items.map((it) => ({
+          name: it.itemName,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+        })),
+      });
+    } catch {
+      // The provider's toast already explains what went wrong.
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   async function patchOrder(fields: Record<string, unknown>) {
     setSaving(true);
@@ -196,6 +226,22 @@ export default function OrderDetailPage({
                 {formatINR(order.total)}
               </span>
             </div>
+
+            {printer.supported !== false && (
+              <button
+                onClick={printBill}
+                disabled={printing}
+                className="btn-ghost mt-3 w-full py-2.5 text-sm"
+              >
+                {printing ? (
+                  <Spinner className="h-4 w-4" />
+                ) : (
+                  <>
+                    <Printer size={16} /> Print bill
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           <p className="mb-2 px-1 text-sm font-semibold text-ink/60">

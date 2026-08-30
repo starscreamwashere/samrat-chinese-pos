@@ -24,11 +24,28 @@ Built to the six project docs (PRD, TRD, App Flow, UI/UX, Schema, Plan).
 | `/dashboard` | Today's revenue, order count, **net position** (revenue − expenses), 14-day revenue chart, all-time finance breakdown *(owner only)* |
 | `/expenses` | Log rent/salary/capital/other, list + delete *(owner only)* |
 | `/menu` | Add/edit/hide menu items, fix prices — no developer needed *(owner only)* |
-| `/more` | Menu + Expenses links, restaurant details, logout |
+| `/more` | Connect the Bluetooth **bill printer**, Menu + Expenses links, restaurant details, logout |
+| `/printer-test` | Low-level Web Bluetooth probe + ESC/POS test slip *(owner only, diagnostics)* |
 | `/api/cron/daily-summary` | Computes totals + top items, writes `daily_summaries`, sends WhatsApp *(protected by `CRON_SECRET`)* |
 
 **Roles:** `owner` = full access. `staff` = take orders + view today's orders only
 (Dashboard/Expenses/Menu are hidden and API-blocked with 403).
+
+## Bill printing (Bluetooth thermal printer)
+
+Bills print to a cheap 58mm BLE thermal printer (built against an **SC588**) over
+**Web Bluetooth** — so it only works in **Chrome on Android** (not iPhone, not
+desktop Safari). No native app, no drivers.
+
+- **Pair once:** More → *Bill printer* → **Connect printer**, then pick it from
+  the Bluetooth list. The connection is held for the session, so orders print
+  without re-picking it each time.
+- **Auto-print:** saving an order prints its bill automatically when a printer is
+  paired. A printer hiccup never blocks or undoes the save.
+- **Reprint:** open any order (`/orders/[id]`) and tap **Print bill**.
+- The receipt builder (`src/lib/printer.ts`) is deliberately conservative —
+  `ESC @` + plain ASCII laid out at 32 columns, matching what the `/printer-test`
+  probe proved prints cleanly on these basic printers.
 
 ## Local setup
 
