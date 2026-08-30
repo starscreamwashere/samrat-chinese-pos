@@ -3,8 +3,13 @@ import { prisma } from "@/lib/prisma";
 import {
   computeDailySummary,
   formatSummaryMessage,
+  summaryTemplateParams,
 } from "@/lib/daily-summary";
-import { sendWhatsAppText } from "@/lib/whatsapp";
+import {
+  sendWhatsAppTemplate,
+  sendWhatsAppText,
+  type WhatsAppResult,
+} from "@/lib/whatsapp";
 import { startOfDay } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -47,19 +52,32 @@ async function handle(req: NextRequest) {
   });
 
   // Send WhatsApp, retry once on failure.
+  //
+  // Prefer the approved template when one is configured — it's the only thing
+  // Meta delivers for an unprompted 7pm push. Plain text is used only when no
+  // template is set (e.g. local testing inside the 24h window).
   const owner = process.env.OWNER_WHATSAPP_NUMBER;
-  const message = formatSummaryMessage(summary);
+  const templateName = process.env.WHATSAPP_TEMPLATE_NAME;
+  const templateLang = process.env.WHATSAPP_TEMPLATE_LANG || "en";
 
-  let sendResult: Awaited<ReturnType<typeof sendWhatsAppText>> = {
+  let sendResult: WhatsAppResult = {
     ok: false,
     error: "OWNER_WHATSAPP_NUMBER not configured",
   };
 
   if (owner) {
-    sendResult = await sendWhatsAppText(owner, message);
-    if (!sendResult.ok) {
-      sendResult = await sendWhatsAppText(owner, message); // one retry
-    }
+    const send = templateName
+      ? () =>
+          sendWhatsAppTemplate(
+            owner,
+            templateName,
+            templateLang,
+            summaryTemplateParams(summary)
+          )
+      : () => sendWhatsAppText(owner, formatSummaryMessage(summary));
+
+    sendResult = await send();
+    if (!sendResult.ok) sendResult = await send(); // one retry
   }
 
   if (!sendResult.ok) {

@@ -125,7 +125,27 @@ The nightly summary uses the **Meta WhatsApp Cloud API**:
    (`WHATSAPP_API_TOKEN`).
 2. Set `OWNER_WHATSAPP_NUMBER` to the owner's number in international format,
    digits only (e.g. `918591929077`).
-3. Test the endpoint:
+3. **Register the message template** (required — see the 24-hour note below).
+   In Meta → WhatsApp Manager → Message templates, create a template:
+   - **Name:** `daily_summary` (put it in `WHATSAPP_TEMPLATE_NAME`)
+   - **Category:** Utility · **Language:** English (put its code in
+     `WHATSAPP_TEMPLATE_LANG`, e.g. `en` or `en_US`)
+   - **Body** — 4 parameters, in this order:
+
+     ```
+     🍜 Samrat Chinese — Daily Summary
+     📅 {{1}}
+     💰 Revenue: {{2}}
+     🧾 Orders: {{3}}
+     🔥 Top items: {{4}}
+     ```
+
+     Sample values for approval: `{{1}}` = `Sat, 30 Aug 2025`, `{{2}}` =
+     `₹4,250`, `{{3}}` = `18`, `{{4}}` = `1) Chicken Chilly x12 (₹2,640), 2) …`.
+
+   The cron fills these from the day's totals automatically
+   (`summaryTemplateParams` in [`src/lib/daily-summary.ts`](src/lib/daily-summary.ts)).
+4. Test the endpoint:
 
    ```bash
    curl -X POST https://<your-app>/api/cron/daily-summary \
@@ -133,11 +153,12 @@ The nightly summary uses the **Meta WhatsApp Cloud API**:
    ```
 
 > **Meta 24-hour window:** outside a 24h customer-service window, Meta only
-> delivers **pre-approved template messages**. For a reliable nightly push,
-> register a template and switch `sendWhatsAppText` in
-> [`src/lib/whatsapp.ts`](src/lib/whatsapp.ts) to a `template` payload. Plain text
-> is wired up now for easy testing; the summary is always viewable on the
-> Dashboard regardless of send status.
+> delivers **pre-approved template messages** — so the scheduled 7pm push needs
+> the template above. When `WHATSAPP_TEMPLATE_NAME` is set, the cron sends the
+> template; if it's left blank, the cron falls back to a plain-text message
+> (which only delivers if the owner messaged the business number in the last
+> 24h — fine for local testing). Either way, the summary is always viewable on
+> the Dashboard regardless of send status.
 
 ## Menu prices to confirm before launch
 
