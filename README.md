@@ -144,7 +144,11 @@ The nightly summary uses the **Meta WhatsApp Cloud API**:
      🔥 Top items: {{6}}
 
      🏦 All-time profit: {{7}}
+     — automated daily report
      ```
+
+     (The trailing static line is required — Meta rejects a template body that
+     ends on a variable. It has no `{{n}}`, so the code still sends 7 params.)
 
      Sample values for approval: `{{1}}` = `Sat, 30 Aug 2025`, `{{2}}` =
      `₹4,250`, `{{3}}` = `₹500`, `{{4}}` = `₹3,750`, `{{5}}` = `18`,
