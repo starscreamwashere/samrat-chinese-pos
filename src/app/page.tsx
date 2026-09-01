@@ -5,11 +5,13 @@ import { signOut, useSession } from "next-auth/react";
 import { AppShell } from "@/components/AppShell";
 import { OrderComposer, type ComposerSubmit } from "@/components/OrderComposer";
 import { usePrinter } from "@/components/PrinterProvider";
+import { useToast } from "@/components/ToastProvider";
 import { apiSend } from "@/lib/fetcher";
 
 export default function OrderPage() {
   const { data: session } = useSession();
   const printer = usePrinter();
+  const toast = useToast();
 
   async function saveOrder(payload: ComposerSubmit) {
     const res = await apiSend<{ order: { id: string; total: number } }>(
@@ -23,6 +25,8 @@ export default function OrderPage() {
         items: payload.items,
       }
     );
+
+    toast.success("Order saved");
 
     // Print the bill from what we just sent + the server's id/total. Fire and
     // forget: the order is already saved, so a printer hiccup must never undo

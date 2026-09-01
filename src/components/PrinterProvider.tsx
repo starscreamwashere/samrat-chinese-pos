@@ -5,10 +5,8 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from "react";
-import { CheckCircle2, Loader2, Printer, XCircle } from "lucide-react";
 import {
   connect as connectPrinter,
   connectedName,
@@ -20,9 +18,7 @@ import {
   printReceipt,
   type ReceiptData,
 } from "@/lib/printer";
-import { cn } from "@/lib/utils";
-
-type Toast = { kind: "info" | "success" | "error"; msg: string } | null;
+import { useToast } from "@/components/ToastProvider";
 
 type PrinterContextValue = {
   supported: boolean | null;
@@ -50,12 +46,11 @@ export function usePrinter(): PrinterContextValue {
 }
 
 export function PrinterProvider({ children }: { children: React.ReactNode }) {
+  const toast = useToast();
   const [supported, setSupported] = useState<boolean | null>(null);
   const [connected, setConnected] = useState(false);
   const [deviceName, setDeviceName] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const [toast, setToast] = useState<Toast>(null);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Web Bluetooth is client-only; compute after mount to avoid a hydration
   // mismatch with the server-rendered HTML.
@@ -72,62 +67,45 @@ export function PrinterProvider({ children }: { children: React.ReactNode }) {
     return onPrinterChange(sync);
   }, []);
 
-  const showToast = useCallback((t: Toast, ms = 3500) => {
-    setToast(t);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    if (t) toastTimer.current = setTimeout(() => setToast(null), ms);
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    },
-    []
-  );
-
   const connect = useCallback(async () => {
     setConnecting(true);
     try {
       const name = await connectPrinter();
       setConnected(true);
       setDeviceName(name);
-      showToast({ kind: "success", msg: `Connected to ${name}` });
+      toast.success(`Connected to ${name}`);
     } catch (e) {
-      const msg =
-        e instanceof PrinterError ? e.message : "Couldn't connect to the printer.";
       // A cancelled chooser isn't an error worth shouting about.
       if (!(e instanceof PrinterError && e.code === "cancelled")) {
-        showToast({ kind: "error", msg });
-      } else {
-        setToast(null);
+        toast.error(
+          e instanceof PrinterError ? e.message : "Couldn't connect to the printer."
+        );
       }
       throw e;
     } finally {
       setConnecting(false);
     }
-  }, [showToast]);
+  }, [toast]);
 
   const disconnect = useCallback(() => {
     disconnectPrinter();
     setConnected(false);
     setDeviceName(null);
-    showToast({ kind: "info", msg: "Printer disconnected" });
-  }, [showToast]);
+    toast.info("Printer disconnected");
+  }, [toast]);
 
   const print = useCallback(
     async (data: ReceiptData) => {
-      showToast({ kind: "info", msg: "Printing bill…" }, 10_000);
+      toast.info("Printing bill…");
       try {
         await printReceipt(data);
-        showToast({ kind: "success", msg: "Bill printed" });
+        toast.success("Bill printed");
       } catch (e) {
-        const msg =
-          e instanceof PrinterError ? e.message : "Printing failed.";
-        showToast({ kind: "error", msg }, 5000);
+        toast.error(e instanceof PrinterError ? e.message : "Printing failed.");
         throw e;
       }
     },
-    [showToast]
+    [toast]
   );
 
   const autoPrint = useCallback(
@@ -156,44 +134,6 @@ export function PrinterProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-      <PrinterToast toast={toast} onClose={() => setToast(null)} />
     </PrinterContext.Provider>
-  );
-}
-
-function PrinterToast({
-  toast,
-  onClose,
-}: {
-  toast: Toast;
-  onClose: () => void;
-}) {
-  if (!toast) return null;
-  const icon =
-    toast.kind === "success" ? (
-      <CheckCircle2 size={18} />
-    ) : toast.kind === "error" ? (
-      <XCircle size={18} />
-    ) : (
-      <Loader2 size={18} className="animate-spin" />
-    );
-
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[76px] z-50 flex justify-center px-4">
-      <button
-        onClick={onClose}
-        className={cn(
-          "pointer-events-auto flex max-w-sm items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-white shadow-lg",
-          toast.kind === "success" && "bg-money-positive",
-          toast.kind === "error" && "bg-money-negative",
-          toast.kind === "info" && "bg-ink"
-        )}
-      >
-        <span className="shrink-0">
-          {toast.kind === "info" ? <Printer size={18} /> : icon}
-        </span>
-        <span className="truncate">{toast.msg}</span>
-      </button>
-    </div>
   );
 }

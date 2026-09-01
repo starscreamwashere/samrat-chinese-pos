@@ -20,7 +20,7 @@ Built to the six project docs (PRD, TRD, App Flow, UI/UX, Schema, Plan).
 |---|---|
 | `/login` | Email/password login (owner pre-created by seed) |
 | `/` | Button-grid order screen — Half/Full pills, +Gravy ₹10 on rice/noodles/starters, live total, Dine-in/Phone, Save |
-| `/orders` | Today's orders with items, per-order + running daily total |
+| `/orders` | Today's orders with items, per-order + running daily total; open one to add items, switch type, reprint, or **delete** a cancelled order |
 | `/dashboard` | Today's revenue, order count, **net position** (revenue − expenses), 14-day revenue chart, all-time finance breakdown *(owner only)* |
 | `/expenses` | Log rent/salary/capital/other, list + delete *(owner only)* |
 | `/menu` | Add/edit/hide menu items, fix prices — no developer needed *(owner only)* |

@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Phone, Printer, Utensils } from "lucide-react";
+import { ArrowLeft, Phone, Printer, Trash2, Utensils } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { OrderComposer, type ComposerSubmit } from "@/components/OrderComposer";
 import { usePrinter } from "@/components/PrinterProvider";
+import { useToast } from "@/components/ToastProvider";
 import { CenteredSpinner, ErrorState, Spinner } from "@/components/ui";
 import { apiGet, apiSend } from "@/lib/fetcher";
 import { formatINR, cn } from "@/lib/utils";
@@ -52,9 +53,28 @@ export default function OrderDetailPage({
 
   const order = data?.order;
   const printer = usePrinter();
+  const toast = useToast();
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function deleteOrder() {
+    setDeleting(true);
+    try {
+      await apiSend(`/api/orders/${id}`, "DELETE");
+      // Drop this order from any cached lists, then leave the detail screen.
+      qc.removeQueries({ queryKey: ["order", id] });
+      await qc.invalidateQueries({ queryKey: ["orders", "today"] });
+      toast.success("Order deleted");
+      router.push("/orders");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete the order.");
+      setDeleting(false);
+      setConfirmingDelete(false);
+    }
+  }
 
   async function printBill() {
     if (!order) return;
@@ -92,6 +112,7 @@ export default function OrderDetailPage({
         qc.invalidateQueries({ queryKey: ["order", id] }),
         qc.invalidateQueries({ queryKey: ["orders", "today"] }),
       ]);
+      toast.success("Order updated");
     } catch (e) {
       // Show a friendly message instead of an unhandled rejection, and
       // resync from the server (e.g. if the order was deleted elsewhere).
@@ -115,6 +136,7 @@ export default function OrderDetailPage({
       qc.invalidateQueries({ queryKey: ["order", id] }),
       qc.invalidateQueries({ queryKey: ["orders", "today"] }),
     ]);
+    toast.success("Items added");
   }
 
   return (
@@ -240,6 +262,36 @@ export default function OrderDetailPage({
                     <Printer size={16} /> Print bill
                   </>
                 )}
+              </button>
+            )}
+
+            {/* Delete / cancel this order — two-step confirm to avoid slips. */}
+            {confirmingDelete ? (
+              <div className="mt-2 flex items-center gap-2 rounded-xl border border-money-negative/20 bg-money-negative/5 px-3 py-2">
+                <span className="flex-1 text-xs font-medium text-money-negative">
+                  Delete this order permanently?
+                </span>
+                <button
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="btn-ghost px-3 py-1.5 text-xs"
+                >
+                  Keep
+                </button>
+                <button
+                  onClick={deleteOrder}
+                  disabled={deleting}
+                  className="rounded-lg bg-money-negative px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  {deleting ? <Spinner className="h-4 w-4 text-white" /> : "Delete"}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 py-2 text-sm font-medium text-money-negative hover:bg-money-negative/5 rounded-xl"
+              >
+                <Trash2 size={16} /> Delete order
               </button>
             )}
           </div>

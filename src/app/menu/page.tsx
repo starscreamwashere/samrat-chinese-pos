@@ -10,6 +10,7 @@ import {
   ErrorState,
   Spinner,
 } from "@/components/ui";
+import { useToast } from "@/components/ToastProvider";
 import { apiGet, apiSend } from "@/lib/fetcher";
 import { formatINR, cn } from "@/lib/utils";
 import type { MenuItem } from "@/lib/types";
@@ -33,6 +34,7 @@ const EMPTY_DRAFT: Draft = {
 
 export default function MenuPage() {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["menu", "all"],
     queryFn: () => apiGet<{ items: MenuItem[] }>("/api/menu"),
@@ -58,8 +60,15 @@ export default function MenuPage() {
   );
 
   async function toggleActive(item: MenuItem) {
-    await apiSend(`/api/menu/${item.id}`, "PATCH", { isActive: !item.isActive });
-    await qc.invalidateQueries({ queryKey: ["menu"] });
+    try {
+      await apiSend(`/api/menu/${item.id}`, "PATCH", {
+        isActive: !item.isActive,
+      });
+      await qc.invalidateQueries({ queryKey: ["menu"] });
+      toast.success(item.isActive ? "Item hidden" : "Item shown");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't update.");
+    }
   }
 
   if (forbidden) {
@@ -183,6 +192,7 @@ function MenuEditor({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const toast = useToast();
   const [form, setForm] = useState<Draft>(draft);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -205,8 +215,10 @@ function MenuEditor({
     try {
       if (form.id) {
         await apiSend(`/api/menu/${form.id}`, "PATCH", payload);
+        toast.success("Item updated");
       } else {
         await apiSend("/api/menu", "POST", payload);
+        toast.success("Item added");
       }
       onSaved();
     } catch (e) {

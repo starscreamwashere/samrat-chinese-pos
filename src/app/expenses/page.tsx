@@ -11,6 +11,7 @@ import {
   ErrorState,
   Spinner,
 } from "@/components/ui";
+import { useToast } from "@/components/ToastProvider";
 import { apiGet, apiSend } from "@/lib/fetcher";
 import { formatINR, cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const TYPES: { value: Expense["type"]; label: string }[] = [
 
 export default function ExpensesPage() {
   const qc = useQueryClient();
+  const toast = useToast();
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["expenses"],
     queryFn: () => apiGet<{ expenses: Expense[] }>("/api/expenses"),
@@ -68,6 +70,7 @@ export default function ExpensesPage() {
       setNote("");
       await qc.invalidateQueries({ queryKey: ["expenses"] });
       await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Expense logged");
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Couldn't save.");
     } finally {
@@ -76,9 +79,14 @@ export default function ExpensesPage() {
   }
 
   async function remove(id: string) {
-    await apiSend(`/api/expenses/${id}`, "DELETE");
-    await qc.invalidateQueries({ queryKey: ["expenses"] });
-    await qc.invalidateQueries({ queryKey: ["dashboard"] });
+    try {
+      await apiSend(`/api/expenses/${id}`, "DELETE");
+      await qc.invalidateQueries({ queryKey: ["expenses"] });
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Expense deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't delete.");
+    }
   }
 
   if (forbidden) {

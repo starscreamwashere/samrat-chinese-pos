@@ -83,3 +83,20 @@ export async function PATCH(
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 }
+
+// DELETE /api/orders/:id  — remove a cancelled order. Its items are removed
+// automatically (OrderItem has onDelete: Cascade). Deletes only this one order.
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const auth = await requireUser();
+  if (auth instanceof NextResponse) return auth;
+
+  try {
+    await prisma.order.delete({ where: { id: params.id } });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  }
+}
