@@ -174,6 +174,45 @@ The nightly summary uses the **Meta WhatsApp Cloud API**:
 > 24h — fine for local testing). Either way, the summary is always viewable on
 > the Dashboard regardless of send status.
 
+## Handover / go-live
+
+Once the app is deployed, env vars are set, and the WhatsApp template is
+approved, hand it to the owner like this. (Designed for a **single owner**
+login — there is no in-app user management.)
+
+1. **Set the owner's password** (no in-app password change exists). Run against
+   the production DB — put the production connection string in `DATABASE_URL`:
+
+   ```bash
+   OWNER_EMAIL="owner@samratchinese.local" NEW_OWNER_PASSWORD="theirNewPassword" \
+     npx tsx scripts/set-owner-password.ts
+   ```
+
+2. **Clear test data** so day one starts clean (keeps menu, owner, settings):
+
+   ```bash
+   CONFIRM_RESET=yes npx tsx scripts/reset-data.ts
+   ```
+
+3. **Point the nightly summary at the owner:**
+   - Add the owner's number as a **verified recipient** on the WhatsApp test
+     number (WhatsApp → API Setup → recipient list → verify OTP).
+   - Set `OWNER_WHATSAPP_NUMBER` (digits only, e.g. `9198…`) in Vercel →
+     **Redeploy**.
+
+4. **First-run setup the owner does once, in the app:**
+   - Open the production URL in **Chrome on Android**, log in, **Add to Home
+     screen**.
+   - **More → Bill printer → Connect printer** (pairing is per-device, done on
+     the POS phone).
+   - **More → Tables** — set the number of tables.
+   - **Menu** — enable/fix the items below and confirm prices against the board.
+
+> **Notes.** The WhatsApp **test number** can only message verified recipients
+> (a handful max) — perfect for an owner-only summary; a real customer-facing
+> number would need its own registration + business verification. The System
+> User token is set to **never expire**, so the nightly push keeps working.
+
 ## Menu prices to confirm before launch
 
 A few board prices were smudged. The seed handles them so nothing rings up wrong:
