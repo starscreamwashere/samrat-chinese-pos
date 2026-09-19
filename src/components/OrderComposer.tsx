@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Minus, X, Search } from "lucide-react";
+import { Plus, Minus, X, Search, Star } from "lucide-react";
 import { CenteredSpinner, ErrorState, Spinner } from "@/components/ui";
 import { apiGet } from "@/lib/fetcher";
 import { formatINR, cn } from "@/lib/utils";
@@ -29,8 +29,11 @@ export type ComposerSubmit = {
  * Tap-to-order menu grid + cart + pinned footer. Shared by the new-order screen
  * and the "add items to an existing order" detail screen.
  *
- * `onSubmit` should resolve on success (the cart is cleared) and reject on
- * failure (the cart is kept and a Retry is shown).
+ * Normally `onSubmit` resolves on success (the cart clears) and rejects on
+ * failure (the cart is kept and a Retry is shown). In `optimistic` mode the
+ * cart clears the instant Save is tapped and `onSubmit` runs in the background —
+ * the caller owns success/failure feedback (used on the busy new-order screen so
+ * it feels instant during a rush).
  */
 export function OrderComposer({
   submitLabel,
@@ -39,6 +42,7 @@ export function OrderComposer({
   initialOrderType = "dine_in",
   resetOrderTypeOnSuccess = false,
   emptyHint = "Tap items to add",
+  optimistic = false,
 }: {
   submitLabel: string;
   onSubmit: (payload: ComposerSubmit) => Promise<void>;
@@ -46,11 +50,19 @@ export function OrderComposer({
   initialOrderType?: OrderType;
   resetOrderTypeOnSuccess?: boolean;
   emptyHint?: string;
+  optimistic?: boolean;
 }) {
   const menuQuery = useQuery({
     queryKey: ["menu", "active"],
     queryFn: () => apiGet<{ items: MenuItem[] }>("/api/menu?activeOnly=true"),
   });
+
+  // Most-ordered items for the pinned "Popular" quick-add row.
+  const popularQuery = useQuery({
+    queryKey: ["menu", "popular"],
+    queryFn: () => apiGet<{ items: MenuItem[] }>("/api/menu/popular?limit=6"),
+  });
+  const popularItems = popularQuery.data?.items ?? [];
 
   const items = menuQuery.data?.items ?? [];
   const categories = useMemo(() => {
@@ -149,30 +161,50 @@ export function OrderComposer({
     });
   }
 
+  function buildPayload(): ComposerSubmit {
+    return {
+      orderType,
+      tableNo: orderType === "dine_in" ? tableNo : null,
+      customerName: orderType === "phone" ? customerName.trim() || null : null,
+      customerPhone:
+        orderType === "phone" ? customerPhone.trim() || null : null,
+      items: cart.map((l) => ({
+        menuItemId: l.menuItemId,
+        itemName: lineName(l),
+        unitPrice: l.unitPrice,
+        quantity: l.quantity,
+      })),
+    };
+  }
+
+  function resetForm() {
+    setCart([]);
+    setTableNo(null);
+    setCustomerName("");
+    setCustomerPhone("");
+    setSaveError(null);
+    if (resetOrderTypeOnSuccess) setOrderType("dine_in");
+  }
+
   async function submit() {
     if (cart.length === 0) return;
+    const payload = buildPayload();
+
+    // Optimistic: clear the screen instantly so the next order can start with
+    // zero wait; the caller handles the background save + any failure recovery.
+    if (optimistic) {
+      resetForm();
+      void onSubmit(payload).catch(() => {
+        /* caller surfaces the error + retry */
+      });
+      return;
+    }
+
     setSaving(true);
     setSaveError(null);
     try {
-      await onSubmit({
-        orderType,
-        tableNo: orderType === "dine_in" ? tableNo : null,
-        customerName:
-          orderType === "phone" ? customerName.trim() || null : null,
-        customerPhone:
-          orderType === "phone" ? customerPhone.trim() || null : null,
-        items: cart.map((l) => ({
-          menuItemId: l.menuItemId,
-          itemName: lineName(l),
-          unitPrice: l.unitPrice,
-          quantity: l.quantity,
-        })),
-      });
-      setCart([]);
-      setTableNo(null);
-      setCustomerName("");
-      setCustomerPhone("");
-      if (resetOrderTypeOnSuccess) setOrderType("dine_in");
+      await onSubmit(payload);
+      resetForm();
     } catch (e) {
       // Keep the tapped items on screen; let the owner retry.
       setSaveError(
@@ -237,6 +269,26 @@ export function OrderComposer({
                   {cat}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Popular quick-add — the most-ordered items, one tap away with no
+              scrolling or typing. Only on the default (All, not searching) view. */}
+          {!q && activeCat === "All" && popularItems.length > 0 && (
+            <div className="mb-4">
+              <p className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-ink/40">
+                <Star size={13} className="text-brand" /> Popular
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {popularItems.map((item) => (
+                  <MenuButton
+                    key={`pop-${item.id}`}
+                    item={item}
+                    onAdd={addToCart}
+                  />
+                ))}
+              </div>
+              <div className="mt-4 mb-1 h-px bg-black/5" />
             </div>
           )}
 
