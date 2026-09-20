@@ -279,7 +279,7 @@ export function OrderComposer({
               <p className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-ink/40">
                 <Star size={13} className="text-brand" /> Popular
               </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {popularItems.map((item) => (
                   <MenuButton
                     key={`pop-${item.id}`}
@@ -292,7 +292,7 @@ export function OrderComposer({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {visibleItems.map((item) => (
               <MenuButton key={item.id} item={item} onAdd={addToCart} />
             ))}
@@ -429,7 +429,7 @@ function ComposerFooter({
   const [expanded, setExpanded] = useState(true);
 
   return (
-    <div className="fixed inset-x-0 bottom-[64px] z-30 mx-auto max-w-2xl">
+    <div className="fixed inset-x-0 bottom-[64px] z-30 mx-auto max-w-2xl md:max-w-3xl lg:max-w-5xl">
       <div className="mx-2 rounded-t-2xl border border-black/10 bg-white shadow-pinned">
         {cart.length > 0 && expanded && (
           <div className="max-h-[35vh] divide-y divide-black/5 overflow-y-auto px-3 py-1">

@@ -15,7 +15,7 @@ export function AppShell({
   footerSpace?: boolean;
 }) {
   return (
-    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col">
+    <div className="mx-auto flex min-h-dvh max-w-2xl flex-col md:max-w-3xl lg:max-w-5xl">
       <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-black/10 bg-white/95 px-4 py-3 backdrop-blur">
         <h1 className="text-lg font-bold tracking-tight">{title}</h1>
         {right}

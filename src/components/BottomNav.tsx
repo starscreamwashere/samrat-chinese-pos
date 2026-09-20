@@ -58,7 +58,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 backdrop-blur pb-[env(safe-area-inset-bottom)]"
       aria-label="Primary"
     >
-      <ul className="mx-auto grid max-w-2xl grid-cols-4">
+      <ul className="mx-auto grid max-w-2xl grid-cols-4 md:max-w-3xl lg:max-w-5xl">
         {tabs.map((tab) => {
           const active = tab.match(pathname);
           const Icon = tab.icon;
