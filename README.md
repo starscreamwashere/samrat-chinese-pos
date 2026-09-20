@@ -6,6 +6,14 @@ rent/salary/capital), and sends the owner a WhatsApp summary every night.
 
 Built to the six project docs (PRD, TRD, App Flow, UI/UX, Schema, Plan).
 
+## Screenshots
+
+| Tap-to-order screen | Owner dashboard |
+| :---: | :---: |
+| <img src="docs/screenshots/order.png" width="260" alt="Tap-to-order menu grid with a Popular quick-add row"> | <img src="docs/screenshots/dashboard.png" width="260" alt="Owner dashboard: today's revenue, net position, 14-day revenue trend"> |
+
+*Left — the tap-to-order menu grid with a **Popular** quick-add row (most-ordered items, one tap away). Right — the owner's dashboard: today's revenue, net position, and a 14-day revenue trend. Finance breakdown (revenue − expenses) shown [here](docs/screenshots/dashboard-finance.png).*
+
 ## Stack
 
 - **Next.js 14** (App Router) + **TypeScript** + **Tailwind CSS**
