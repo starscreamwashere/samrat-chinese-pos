@@ -8,11 +8,11 @@ Built to the six project docs (PRD, TRD, App Flow, UI/UX, Schema, Plan).
 
 ## Screenshots
 
-| Tap-to-order screen | Owner dashboard |
-| :---: | :---: |
-| <img src="docs/screenshots/order.png" width="260" alt="Tap-to-order menu grid with a Popular quick-add row"> | <img src="docs/screenshots/dashboard.png" width="260" alt="Owner dashboard: today's revenue, net position, 14-day revenue trend"> |
+| Tap-to-order | Today's orders | Owner dashboard |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/order.png" width="240" alt="Tap-to-order menu grid with a Popular quick-add row"> | <img src="docs/screenshots/orders.png" width="240" alt="Today's orders with items, table/phone tags, and a running daily total"> | <img src="docs/screenshots/dashboard.png" width="240" alt="Owner dashboard: today's revenue, net position, 14-day revenue trend"> |
 
-*Left — the tap-to-order menu grid with a **Popular** quick-add row (most-ordered items, one tap away). Right — the owner's dashboard: today's revenue, net position, and a 14-day revenue trend. Finance breakdown (revenue − expenses) shown [here](docs/screenshots/dashboard-finance.png).*
+*Left — the tap-to-order menu grid with a **Popular** quick-add row (most-ordered items, one tap away). Middle — today's orders with items, table/phone tags, and a running daily total. Right — the owner's dashboard: today's revenue, net position, and a 14-day revenue trend. Finance breakdown (revenue − expenses) shown [here](docs/screenshots/dashboard-finance.png).*
 
 ## Stack
 
