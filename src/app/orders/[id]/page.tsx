@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Phone, Printer, Trash2, Utensils } from "lucide-react";
+import { ArrowLeft, Phone, Printer, Trash2, Utensils, X } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { OrderComposer, type ComposerSubmit } from "@/components/OrderComposer";
 import { usePrinter } from "@/components/PrinterProvider";
@@ -59,6 +59,25 @@ export default function OrderDetailPage({
   const [printing, setPrinting] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmingItemId, setConfirmingItemId] = useState<string | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+
+  async function removeItem(itemId: string) {
+    setRemovingItemId(itemId);
+    try {
+      await apiSend(`/api/orders/${id}/items/${itemId}`, "DELETE");
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["order", id] }),
+        qc.invalidateQueries({ queryKey: ["orders", "today"] }),
+      ]);
+      toast.success("Item removed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't remove the item.");
+    } finally {
+      setRemovingItemId(null);
+      setConfirmingItemId(null);
+    }
+  }
 
   async function deleteOrder() {
     setDeleting(true);
@@ -225,17 +244,46 @@ export default function OrderDetailPage({
               {order.items.map((it) => (
                 <li
                   key={it.id}
-                  className="flex justify-between text-sm text-ink/70"
+                  className="flex items-center justify-between gap-2 text-sm text-ink/70"
                 >
-                  <span>
+                  <span className="min-w-0 flex-1 truncate">
                     <span className="nums font-medium text-ink">
                       {it.quantity}×
                     </span>{" "}
                     {it.itemName}
                   </span>
-                  <span className="nums text-ink/50">
+                  <span className="nums shrink-0 text-ink/50">
                     {formatINR(it.unitPrice * it.quantity)}
                   </span>
+                  {/* Remove a single item (e.g. a cancelled dish). Hidden on the
+                      last item — deleting the whole order is the action there. */}
+                  {order.items.length > 1 &&
+                    (confirmingItemId === it.id ? (
+                      <span className="flex shrink-0 items-center gap-1">
+                        <button
+                          onClick={() => setConfirmingItemId(null)}
+                          disabled={removingItemId === it.id}
+                          className="rounded-md px-2 py-1 text-xs font-medium text-ink/60"
+                        >
+                          Keep
+                        </button>
+                        <button
+                          onClick={() => removeItem(it.id)}
+                          disabled={removingItemId === it.id}
+                          className="rounded-md bg-money-negative px-2 py-1 text-xs font-semibold text-white"
+                        >
+                          {removingItemId === it.id ? "…" : "Remove"}
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingItemId(it.id)}
+                        aria-label={`Remove ${it.itemName}`}
+                        className="shrink-0 p-1 text-ink/30 hover:text-money-negative"
+                      >
+                        <X size={16} />
+                      </button>
+                    ))}
                 </li>
               ))}
             </ul>
